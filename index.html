@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>ULTRA SMASH! — TTC Wielsbeke-Spotit</title>
+<meta name="description" content="Sla de bal zo ver mogelijk. Perfect getimed = ULTRA SMASH.">
+<meta name="theme-color" content="#0b3a75">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='9' fill='%23fff'/%3E%3Cpath d='M4 20q6-2 8-8M2 14q5-1 7-6' stroke='%23ff8a1f' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* enkel wat ULTRA SMASH! anders doet dan PIPS OUT! */
+  #hud .hudbox{ min-width:0; padding:7px 6px; gap:5px; }
+  #hud .digits{ font-size:11px; letter-spacing:0; white-space:nowrap; padding:4px 3px 3px; }
+  #hud-serves{ flex:0 0 auto; }
+  .serves{ display:flex; gap:4px; }
+  .serve{
+    width:11px; height:11px; border-radius:50%;
+    background:#fff; box-shadow:inset 0 -3px 0 rgba(0,0,0,.25), 0 2px 0 rgba(0,0,0,.45);
+    transition:transform .2s, opacity .2s, background .2s;
+  }
+  .serve.gone{ background:#2b4a70; opacity:.55; transform:scale(.75); }
+  .hud-label{ font-size:6px; color:#9ed4ff; flex:0 0 auto; }
+  #stage{ background:#0e3a6d; }
+  #game{ cursor:pointer; }
+  .logo.smash{ color:#fff; text-shadow:3px 3px 0 #8d1519, -1px -1px 0 #ffd23f, 0 0 22px rgba(255,140,40,.8); }
+  .logo.smash span{ color:#ff8a1f; text-shadow:3px 3px 0 #6b2a00, 0 0 22px rgba(255,120,30,.8); font-size:1.15em; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <div class="hudbox" id="hud-serves">
+      <div class="serves" id="serves"></div>
+    </div>
+    <div class="hudbox">
+      <span class="hud-label">VER</span>
+      <div class="digits" id="distDigits">0,0 m</div>
+    </div>
+    <div class="hudbox">
+      <span class="hud-label">BEST</span>
+      <div class="digits" id="bestDigits">0,0 m</div>
+    </div>
+  </div>
+
+  <!-- ============ SPEELVELD ============ -->
+  <div id="stage">
+    <canvas id="game" width="440" height="520"></canvas>
+
+    <!-- ---- TITEL ---- -->
+    <div class="overlay" id="screen-title">
+      <div class="poster-kicker">Sport</div>
+      <h1 class="poster-head">Jeugdspeler slaat opslag tot in de kantine. Bestuur onderzoekt of dat reglementair is</h1>
+      <div class="logo smash">ULTRA<span>SMASH!</span></div>
+      <p class="tagline">Tik om op te gooien. Tik opnieuw om te slaan.<br>Perfect getimed = ULTRA SMASH.</p>
+      <button class="btn" id="btnStart">SPELEN</button>
+      <div class="btnrow">
+        <button class="btn ghost" id="btnHow">Hoe werkt het?</button>
+      </div>
+      <div class="best">Clubrecord op dit toestel: <span id="bestTitle">—</span></div>
+    </div>
+
+    <!-- ---- UITLEG ---- -->
+    <div class="overlay hidden" id="screen-how">
+      <h2 class="ov-title">Reglement</h2>
+      <ul class="rules">
+        <li><span><b>Tik</b> — de speler gooit op. <b>Tik opnieuw</b> als de bal door de gele strook valt.</span></li>
+        <li><span><b>Te vroeg</b> = een lob. <b>Te laat</b> = in de grond. <b>Perfect</b> = vuur.</span></li>
+        <li><span><b>Tafel</b> — botst en versnelt. <b>Zwart clubshirt</b> — je teamgenoot slaat hem verder.</span></li>
+        <li><span><b class="no">Geel shirt</b>, afschermingen en vangnetten remmen af. Een brandende bal gaat erdoor.</span></li>
+        <li><span><b>In de lucht</b> — één keer tikken om te blazen.</span></li>
+      </ul>
+      <p class="fineprint">Vijf opslagen. Je verste telt. Elke dag staat de zaal anders.</p>
+      <button class="btn" id="btnBack">Terug</button>
+    </div>
+
+    <!-- ---- EINDE ---- -->
+    <div class="overlay hidden" id="screen-over">
+      <h2 class="ov-title">VIJF OPSLAGEN</h2>
+      <div class="finalscore" id="finalDist">0,0 m</div>
+      <p class="quip" id="overQuip"></p>
+      <div class="best">Clubrecord op dit toestel: <span id="bestOver">—</span></div>
+      <button class="btn" id="btnRetry">Opnieuw</button>
+      <div class="btnrow">
+        <button class="btn ghost" id="btnShare">Deel je afstand</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TICKER ============ -->
+  <div id="ticker">
+    <span class="tick-label">Wielsbeke nieuwsflits</span>
+    <div class="tick-window"><span class="tick-text" id="tickText"></span></div>
+  </div>
+
+</div>
+
+<button id="mute" title="Geluid aan/uit" aria-label="Geluid aan/uit">♪</button>
+
+<script src="physics.js"></script>
+<script src="smash.js"></script>
+</body>
+</html>
