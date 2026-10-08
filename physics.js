@@ -19,20 +19,31 @@ const P = {
   stopSpeed: 0.25,
 
   // de opgooi
-  tossY: 1.0, tossV: 3.4, hitY: 1.15,
-  tossSpeed: 0.75,     // de opgooi loopt in lichte slow motion
-  perfect: 0.04,       // venster voor de ULTRA SMASH, in speltijd
-  good: 0.14,
+  tossY: 1.0, hitY: 1.15,
+  tossV: [4.2, 5.4],   // elke opgooi is anders hoog (top op 1,9 tot 2,5 m): op ritme spelen lukt niet
+  tossSpeed: 0.9,      // de opgooi loopt in lichte slow motion
+  perfectBand: 0.13,   // de sweet spot: ±13 cm rond de slaghoogte. Hoe hoger de opgooi,
+                       // hoe sneller de bal erdoor valt, hoe korter het venster
+  falloff: 0.22,       // hoe snel een slag slapper wordt naast dat venster (speltijd)
 
   fireTime: 2.4,
   tableTop: 0.76, tableLen: 2.74, netH: 0.1525,
   boardH: 0.7, catchH: 3.4, playerH: 2.1, robotH: 1.5
 };
 
-/* moment waarop de dalende bal door de slaghoogte gaat */
-const IDEAL = (P.tossV + Math.sqrt(P.tossV * P.tossV - 2 * P.g * (P.hitY - P.tossY))) / P.g;
+/* een willekeurige opgooisnelheid voor de volgende opslag */
+function tossV(){ return P.tossV[0] + Math.random() * (P.tossV[1] - P.tossV[0]); }
 
-function tossY(t){ return P.tossY + P.tossV * t - 0.5 * P.g * t * t; }
+/* moment waarop de dalende bal door de slaghoogte gaat */
+function ideal(v){ return (v + Math.sqrt(v * v - 2 * P.g * (P.hitY - P.tossY))) / P.g; }
+
+function tossY(t, v){ return P.tossY + v * t - 0.5 * P.g * t * t; }
+
+/* venster voor de ULTRA SMASH, in speltijd: de tijd die de bal in de sweet spot hangt */
+function perfectWindow(v){
+  const fall = Math.sqrt(v * v - 2 * P.g * (P.hitY - P.tossY));
+  return P.perfectBand / fall;
+}
 
 /* ---------- toeval dat voor iedereen op dezelfde dag hetzelfde is ---------- */
 function rng(seed){
@@ -78,13 +89,14 @@ function freshWorld(world){ return world.map(o => ({ type: o.type, x: o.x, len: 
    e = hoe ver je naast het ideale moment tikte (speltijd, negatief = te vroeg).
    Te vroeg: de bal hangt nog hoog, je slaat een lob.
    Te laat: de bal zakt al, je slaat hem plat of in de grond. */
-function launch(e){
+function launch(e, tv){
   const a = Math.abs(e);
-  if (a <= P.perfect){
+  const win = perfectWindow(tv || (P.tossV[0] + P.tossV[1]) / 2);
+  if (a <= win){
     const ang = 23 * Math.PI / 180, v = 50;
     return { vx: v * Math.cos(ang), vy: v * Math.sin(ang), perfect: true, quality: 1 };
   }
-  const q = Math.max(0, 1 - (a - P.perfect) / 0.3);
+  const q = Math.max(0, 1 - (a - win) / P.falloff);
   const v = 9 + 25 * q * q;
   let deg = 24 + (e < 0 ? -e * 150 : -e * 120);
   deg = Math.max(-18, Math.min(72, deg));
@@ -259,7 +271,7 @@ function collide(o, b, px, py, ev){
   }
 }
 
-return { P, IDEAL, tossY, rng, daySeed, buildWorld, freshWorld, launch, newBall, blow, step };
+return { P, tossV, ideal, tossY, perfectWindow, rng, daySeed, buildWorld, freshWorld, launch, newBall, blow, step };
 })();
 
 if (typeof module !== 'undefined') module.exports = SmashPhysics;

@@ -62,6 +62,7 @@
       <button class="btn" id="btnStart">SPELEN</button>
       <div class="btnrow">
         <button class="btn ghost" id="btnHow">Hoe werkt het?</button>
+        <button class="btn ghost" id="btnBoard">Erelijst</button>
       </div>
       <div class="best">Clubrecord op dit toestel: <span id="bestTitle">—</span></div>
     </div>
@@ -85,11 +86,28 @@
       <h2 class="ov-title">VIJF OPSLAGEN</h2>
       <div class="finalscore" id="finalDist">0,0 m</div>
       <p class="quip" id="overQuip"></p>
+
+      <form class="namerow" id="submitRow" autocomplete="off">
+        <input id="playerName" type="text" maxlength="16" placeholder="JOUW NAAM"
+               spellcheck="false" aria-label="Jouw naam voor de erelijst">
+        <button class="btn small" type="submit" id="btnSubmit">Noteer</button>
+      </form>
+      <p class="noted hidden" id="submitDone"></p>
+
       <div class="best">Clubrecord op dit toestel: <span id="bestOver">—</span></div>
       <button class="btn" id="btnRetry">Opnieuw</button>
       <div class="btnrow">
+        <button class="btn ghost" id="btnBoardOver">Erelijst</button>
         <button class="btn ghost" id="btnShare">Deel je afstand</button>
       </div>
+    </div>
+
+    <!-- ---- ERELIJST ---- -->
+    <div class="overlay hidden" id="screen-board">
+      <h2 class="ov-title">ERELIJST</h2>
+      <ol class="board" id="boardList"></ol>
+      <p class="fineprint" id="boardNote"></p>
+      <button class="btn" id="btnBoardBack">Terug</button>
     </div>
   </div>
 
@@ -103,6 +121,8 @@
 
 <button id="mute" title="Geluid aan/uit" aria-label="Geluid aan/uit">♪</button>
 
+<script src="config.js"></script>
+<script src="board.js"></script>
 <script src="physics.js"></script>
 <script src="smash.js"></script>
 </body>

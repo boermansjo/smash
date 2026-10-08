@@ -23,6 +23,8 @@ const el = {
   title: $('screen-title'), how: $('screen-how'), over: $('screen-over'),
   finalDist: $('finalDist'), overQuip: $('overQuip'),
   bestTitle: $('bestTitle'), bestOver: $('bestOver'),
+  board: $('screen-board'), boardList: $('boardList'), boardNote: $('boardNote'),
+  submitRow: $('submitRow'), submitDone: $('submitDone'), playerName: $('playerName'),
   tickText: $('tickText'), mute: $('mute')
 };
 
@@ -157,7 +159,7 @@ const G = {
   base: null, world: null,
   serve: 0, results: [], roundBest: 0,
   record: +(localStorage.getItem('smash_best') || 0),
-  tossT: 0, ball: null, shot: null,
+  tossT: 0, tossV: 3.4, tossAt: 0, ball: null, shot: null,
   hitT: 0,                // tijd sinds de slag, voor de zwaai
   smashT: 0,              // tijd in de anime-pauze
   slow: 1, slowT: 0,      // slow motion na de ULTRA SMASH
@@ -193,6 +195,7 @@ function show(name){
   el.title.classList.toggle('hidden', name !== 'title');
   el.how.classList.toggle('hidden', name !== 'how');
   el.over.classList.toggle('hidden', name !== 'over');
+  el.board.classList.toggle('hidden', name !== 'board');
 }
 
 function drawServes(){
@@ -226,12 +229,17 @@ function nextServe(){
 function toss(){
   G.screen = 'toss';
   G.tossT = 0;
+  G.tossV = S.tossV();
+  G.tossAt = performance.now();
   Snd.toss();
 }
 
 function hit(){
-  const e = G.tossT - S.IDEAL;
-  const shot = S.launch(e);
+  // gemeten op de klok, niet op het laatst getekende beeld: een trage gsm
+  // mag het venster niet kleiner of groter maken
+  G.tossT = (performance.now() - G.tossAt) / 1000 * P.tossSpeed;
+  const e = G.tossT - S.ideal(G.tossV);
+  const shot = S.launch(e, G.tossV);
   G.shot = shot;
   G.ball = S.newBall(shot);
   G.hitT = 0;
@@ -257,7 +265,7 @@ function hit(){
 
 function miss(){
   G.ball = S.newBall({ vx: 0.4, vy: -1, perfect: false });
-  G.ball.y = S.tossY(G.tossT);
+  G.ball.y = S.tossY(G.tossT, G.tossV);
   G.screen = 'fly';
   G.missed = true;
   Snd.whiff();
@@ -289,7 +297,67 @@ function afterLanding(){
   el.finalDist.textContent = fmt(G.roundBest);
   el.overQuip.textContent = quipFor(G.roundBest);
   el.bestOver.textContent = G.record ? fmt(G.record) : '—';
+
+  // naam van de vorige keer klaarzetten; vijf foute opslagen noteren we niet
+  el.submitRow.classList.toggle('hidden', !SmashBoard.plausible(G.roundBest));
+  el.submitDone.classList.add('hidden');
+  el.playerName.value = localStorage.getItem('ttcw_name') || '';
   show('over');
+}
+
+/* ============================================================
+   ERELIJST
+   ============================================================ */
+let boardFrom = 'title', boardToken = 0;
+
+function boardRow(cls, cells){
+  const li = document.createElement('li');
+  if (cls) li.className = cls;
+  for (const [c, txt] of cells){
+    const sp = document.createElement('span');
+    sp.className = c;
+    sp.textContent = txt;            // nooit innerHTML: namen komen van spelers
+    li.appendChild(sp);
+  }
+  return li;
+}
+
+async function renderBoard(mineTs){
+  const mine = ++boardToken;
+  const list = el.boardList;
+  list.textContent = '';
+  list.appendChild(boardRow('leeg', [['', 'Laden…']]));
+  el.boardNote.textContent = '';
+
+  const res = await SmashBoard.top();
+  if (mine !== boardToken) return;    // ondertussen opnieuw geopend
+
+  list.textContent = '';
+  if (!res.rows.length){
+    list.appendChild(boardRow('leeg', [['', 'Nog niemand. Sla de eerste bal.']]));
+  } else {
+    res.rows.forEach((r, i) => {
+      list.appendChild(boardRow(mineTs && r.ts === mineTs ? 'me' : '', [
+        ['rk', (i + 1) + '.'],
+        ['nm', r.name],
+        ['sc', fmt(r.distance)]
+      ]));
+    });
+  }
+  el.boardNote.textContent =
+    res.offline ? 'Geen verbinding met de clubranking. Dit is de lijst op dit toestel.'
+    : res.remote ? 'De verste slag van elke speler in de club.'
+    : res.rows.length ? 'Deze lijst staat op dit toestel.'
+    : 'Speel vijf opslagen en zet je naam erbij.';
+
+  const me = list.querySelector('.me');
+  if (me) me.scrollIntoView({ block: 'center' });
+}
+
+function showBoard(from, mineTs){
+  boardFrom = from;
+  show('board');
+  renderBoard(mineTs);
 }
 
 /* ============================================================
@@ -299,8 +367,8 @@ function update(dt){
   const b = G.ball;
 
   if (G.screen === 'toss'){
-    G.tossT += dt * P.tossSpeed;
-    if (S.tossY(G.tossT) < 0.3) miss();
+    G.tossT = (performance.now() - G.tossAt) / 1000 * P.tossSpeed;
+    if (S.tossY(G.tossT, G.tossV) < 0.3) miss();
   }
 
   if (G.screen === 'smash'){
@@ -702,7 +770,7 @@ function drawServer(){
   // slagarm: hoek 0 wijst naar voor, PI naar achter, 3PI/2 recht omhoog
   let th;
   if (G.screen === 'ready') th = Math.PI + 0.4;
-  else if (G.screen === 'toss') th = Math.PI + 0.4 + Math.min(1, G.tossT / S.IDEAL) * 1.2;   // naar achter en omhoog halen
+  else if (G.screen === 'toss') th = Math.PI + 0.4 + Math.min(1, G.tossT / S.ideal(G.tossV)) * 1.2;   // naar achter en omhoog halen
   else if (G.screen === 'smash') th = Math.PI * 2 - 0.3;                                      // bevroren op de bal
   else th = Math.PI + 1.6 + Math.min(1, G.hitT * 9) * 2.35;                                  // doorzwaaien tot voor je
   ctx.save();
@@ -718,8 +786,7 @@ function drawServer(){
 
   // de gele strook: daar moet de bal door als je tikt
   if (G.screen === 'ready' || G.screen === 'toss'){
-    const v = Math.abs(P.tossV - P.g * S.IDEAL);
-    const band = v * P.perfect;
+    const band = P.perfectBand;
     const y0 = sy(P.hitY + band), y1 = sy(P.hitY - band);
     ctx.fillStyle = 'rgba(255,210,63,.28)';
     ctx.fillRect(sx(0.3), y0, 0.5 * m, y1 - y0);
@@ -731,7 +798,7 @@ function drawServer(){
 /* ---------- de bal ---------- */
 function ballPos(){
   if (G.screen === 'ready') return { x: 0.55, y: P.tossY };
-  if (G.screen === 'toss')  return { x: 0.55, y: S.tossY(G.tossT) };
+  if (G.screen === 'toss')  return { x: 0.55, y: S.tossY(G.tossT, G.tossV) };
   return G.ball;
 }
 
@@ -968,7 +1035,9 @@ cv.addEventListener('pointerdown', e => { tap(); e.preventDefault(); });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 
 addEventListener('keydown', e => {
+  if (e.target && /^(INPUT|TEXTAREA|BUTTON)$/.test(e.target.tagName)) return;
   if (e.code !== 'Space' && e.code !== 'Enter') return;
+  if (G.screen === 'how' || G.screen === 'board') return;
   e.preventDefault();
   if (e.repeat) return;
   if (G.screen === 'title' || G.screen === 'over'){ Snd.init(); startRound(); }
@@ -979,6 +1048,34 @@ $('btnStart').onclick = () => { Snd.init(); startRound(); };
 $('btnRetry').onclick = () => startRound();
 $('btnHow').onclick   = () => show('how');
 $('btnBack').onclick  = () => show('title');
+$('btnBoard').onclick     = () => showBoard('title');
+$('btnBoardOver').onclick = () => showBoard('over');
+$('btnBoardBack').onclick = () => show(boardFrom);
+
+el.submitRow.addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('btnSubmit');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'Bezig…';
+
+  const res = await SmashBoard.submit(el.playerName.value, G.roundBest, G.seed);
+
+  btn.disabled = false;
+  btn.textContent = label;
+  if (!res) return;
+
+  localStorage.setItem('ttcw_name', res.entry.name);
+  el.submitRow.classList.add('hidden');
+  el.submitDone.classList.remove('hidden');
+  el.submitDone.textContent =
+    res.offline ? 'Geen verbinding. Bewaard op dit toestel, de club ziet ze nog niet.'
+    : res.rank  ? 'Genoteerd als ' + res.entry.name + ' — plaats ' + res.rank + '.'
+                : 'Genoteerd als ' + res.entry.name + '.';
+  Snd.land();
+  setTimeout(() => showBoard('over', res.entry.ts), 750);
+});
 $('btnShare').onclick = async () => {
   const txt = 'Ik sloeg de bal ' + fmt(G.roundBest) + ' ver in ULTRA SMASH!, ' +
               'de nieuwe videogame van TTC Wielsbeke-Spotit. ' + location.href;
