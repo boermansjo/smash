@@ -10,10 +10,10 @@ door Wielsbeke tot aan de Leie.
 - **Tik** — de speler gooit op. **Tik opnieuw** als de bal door de gele strook valt.
 - **Te vroeg** = een lob. **Te laat** = in de grond. **Perfect** = ULTRA SMASH, en de bal brandt.
 - **Tafel** — botst en versnelt. **Zwart clubshirt** — je teamgenoot slaat hem verder.
-- **Geel shirt**, afschermingen en vangnetten remmen af. Een brandende bal gaat erdoor.
+- De **noppenspeler** blokt alles dood. Afschermingen en vangnetten remmen af. Een brandende bal gaat overal door.
 - **In de lucht** — één keer tikken om te blazen.
 
-Vijf opslagen, je verste telt. Elke dag staat de zaal anders, maar voor iedereen hetzelfde.
+Vijf opslagen, alles telt samen; een foute opslag is nul. Elke dag staat de zaal anders, maar voor iedereen hetzelfde.
 Je record blijft op je eigen toestel (`localStorage`).
 
 ## Technisch
@@ -38,7 +38,7 @@ node -e "const S=require('./physics.js'); const b=S.newBall(S.launch(0)); const 
 
 ## Erelijst
 
-Na vijf opslagen zet je je naam bij je verste slag. Per naam blijft enkel de verste staan.
+Na vijf opslagen zet je je naam bij je totaal. Per naam blijft enkel het beste totaal staan.
 De lijst draait op hetzelfde Supabase-project als PIPS OUT!, in een eigen tabel. Zolang die
 tabel niet bestaat of de verbinding wegvalt, bewaart het spel de afstanden op het toestel zelf.
 
@@ -68,13 +68,13 @@ create policy "afstand toevoegen"
   on public.smash_scores for insert to anon
   with check (
     char_length(btrim(name)) between 1 and 16
-    and distance > 0 and distance <= 2000
+    and distance > 0 and distance <= 10000
     and day between 20260101 and 21001231
   );
 ```
 
 `day` is de zaal van die dag (`20261008`), zodat er later een dagranking bij kan.
-Sleutels en tabelnaam staan in `config.js`; de bovengrens van 2000 m is dezelfde als in `board.js`.
+Sleutels en tabelnaam staan in `config.js`; de bovengrens van 10000 m (vijf keer 2000) is dezelfde als in `board.js`.
 
 ## Lokaal draaien
 

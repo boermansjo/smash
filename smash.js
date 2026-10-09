@@ -19,9 +19,9 @@ const ctx = cv.getContext('2d');
 
 const $ = id => document.getElementById(id);
 const el = {
-  serves: $('serves'), dist: $('distDigits'), best: $('bestDigits'),
+  serves: $('serves'), dist: $('distDigits'), total: $('totalDigits'),
   title: $('screen-title'), how: $('screen-how'), over: $('screen-over'),
-  finalDist: $('finalDist'), overQuip: $('overQuip'),
+  finalDist: $('finalDist'), overQuip: $('overQuip'), overSplits: $('overSplits'),
   bestTitle: $('bestTitle'), bestOver: $('bestOver'),
   board: $('screen-board'), boardList: $('boardList'), boardNote: $('boardNote'),
   submitRow: $('submitRow'), submitDone: $('submitDone'), playerName: $('playerName'),
@@ -37,12 +37,22 @@ const HEADLINES = [
   'Jeugdtrainer: "Anime kijken is geen training." Jeugd is het oneens.',
   'Buurtbewoner vindt tafeltennisbal in dakgoot. Onderzoek loopt.',
   'Clubrecord verbroken met een bal die volgens getuigen "brandde".',
-  'Tegenstander blokt vlammende bal, draagt nu ovenwanten.',
+  'Noppenspeler blokt vlammende bal. Noppen gesmolten, speler ongedeerd.',
+  'Noppenspeler noemt ULTRA SMASH "gewoon een harde bal". Club reageert verontwaardigd.',
   'Materiaalcommissie bestelt 400 nieuwe ballen. Weet nu waarom.',
   'Bestuur overweegt vangnet rond de parking.'
 ];
 
 const pick = a => a[(Math.random() * a.length) | 0];
+
+/* wat er over de tafel geroepen wordt als de noppenspeler je bal doodblokt */
+const OPP_LINES = [
+  'NOPPENBLOK!',
+  'DAT IS GEEN TAFELTENNIS',
+  'DOODGEBLOKT MET NOPPEN',
+  'ZONDER EFFECT TERUG',
+  'NOPPEN. ALWEER.'
+];
 
 function quipFor(d){
   if (d <= 0)  return 'De bal raakte zelfs het batje niet. De scheids kijkt weg.';
@@ -59,12 +69,12 @@ const EVT = {
   table:    ['TAFEL! +SNELHEID', '#7ef0ff'],
   netcord:  ['NETBAL',           '#ffd23f'],
   mate:     ['TEAMGENOOT!',      '#7ef0ff'],
-  opp:      ['GEBLOKT',          '#ff6b6b'],
+  opp:      [null,               '#ff6b6b'],   // zie OPP_LINES
   board:    ['AFSCHERMING',      '#ff6b6b'],
   catchnet: ['VANGNET',          '#ff6b6b'],
   robot:    ['BALLENROBOT!',     '#9bff6e'],
   burn:     ['DOORGEBRAND!',     '#ff9a2e'],
-  burnopp:  ['TE HEET OM TE BLOKKEN', '#ff9a2e']
+  burnopp:  ['DE NOPPEN SMELTEN!', '#ff9a2e']
 };
 
 /* ============================================================
@@ -157,8 +167,9 @@ const G = {
   screen: 'title',        // title | how | ready | toss | smash | fly | landed | over
   seed: S.daySeed(),
   base: null, world: null,
-  serve: 0, results: [], roundBest: 0,
-  record: +(localStorage.getItem('smash_best') || 0),
+  serve: 0, results: [], roundBest: 0, total: 0,
+  record: +(localStorage.getItem('smash_best') || 0),         // verste slag ooit, voor het vlaggetje
+  recordTotal: +(localStorage.getItem('smash_total') || 0),   // beste vijf opslagen samen
   tossT: 0, tossV: 3.4, tossAt: 0, ball: null, shot: null,
   hitT: 0,                // tijd sinds de slag, voor de zwaai
   smashT: 0,              // tijd in de anime-pauze
@@ -173,6 +184,7 @@ G.base = S.buildWorld(G.seed);
 
 /* ---------- helpers ---------- */
 const fmt = d => d.toFixed(1).replace('.', ',') + ' m';
+const fmtHud = d => Math.round(d) + ' m';   // in het smalle vakje bovenaan: hele meters
 const sx = x => ANCHOR + (x - G.cam.x) * G.cam.ppm;
 const sy = y => GROUND - y * G.cam.ppm;
 
@@ -208,11 +220,11 @@ function drawServes(){
 }
 function drawHud(){
   el.dist.textContent = fmt(G.ball ? Math.max(0, G.ball.x) : 0);
-  el.best.textContent = fmt(G.roundBest);
+  el.total.textContent = fmtHud(G.total + (G.screen === 'fly' && G.ball && !G.missed ? Math.max(0, G.ball.x) : 0));
 }
 
 function startRound(){
-  G.serve = 0; G.results = []; G.roundBest = 0;
+  G.serve = 0; G.results = []; G.roundBest = 0; G.total = 0;
   drawServes();
   nextServe();
 }
@@ -278,15 +290,15 @@ function land(){
   G.results.push(d);
   G.serve++;
   drawServes();
-  const newBest = d > G.roundBest;
-  if (newBest) G.roundBest = d;
+  if (d > G.roundBest) G.roundBest = d;
+  G.total += d;
   const rec = d > G.record;
   if (rec){
     G.record = d;
     localStorage.setItem('smash_best', String(d));
     Snd.record();
   } else if (d > 0) Snd.land();
-  setBanner(fmt(d), rec ? 'NIEUW CLUBRECORD!' : quipFor(d), rec ? '#ffd23f' : '#fff', 99);
+  setBanner(fmt(d), rec ? 'Verste slag ooit op dit toestel!' : quipFor(d), rec ? '#ffd23f' : '#fff', 99);
   G.screen = 'landed';
   G.landT = 0;
   drawHud();
@@ -294,12 +306,19 @@ function land(){
 
 function afterLanding(){
   if (G.serve < SERVES) return nextServe();
-  el.finalDist.textContent = fmt(G.roundBest);
-  el.overQuip.textContent = quipFor(G.roundBest);
-  el.bestOver.textContent = G.record ? fmt(G.record) : '—';
+  const rec = G.total > G.recordTotal;
+  if (rec){
+    G.recordTotal = G.total;
+    localStorage.setItem('smash_total', String(G.total));
+    Snd.record();
+  }
+  el.finalDist.textContent = fmt(G.total);
+  el.overSplits.textContent = G.results.map(d => d.toFixed(1).replace('.', ',')).join(' + ');
+  el.overQuip.textContent = (rec ? 'Nieuw record op dit toestel! ' : '') + quipFor(G.roundBest);
+  el.bestOver.textContent = fmt(G.recordTotal);
 
   // naam van de vorige keer klaarzetten; vijf foute opslagen noteren we niet
-  el.submitRow.classList.toggle('hidden', !SmashBoard.plausible(G.roundBest));
+  el.submitRow.classList.toggle('hidden', !SmashBoard.plausible(G.total));
   el.submitDone.classList.add('hidden');
   el.playerName.value = localStorage.getItem('ttcw_name') || '';
   show('over');
@@ -346,7 +365,7 @@ async function renderBoard(mineTs){
   }
   el.boardNote.textContent =
     res.offline ? 'Geen verbinding met de clubranking. Dit is de lijst op dit toestel.'
-    : res.remote ? 'De verste slag van elke speler in de club.'
+    : res.remote ? 'Het beste totaal van vijf opslagen, per speler in de club.'
     : res.rows.length ? 'Deze lijst staat op dit toestel.'
     : 'Speel vijf opslagen en zet je naam erbij.';
 
@@ -433,7 +452,8 @@ function onEvent(e){
     return;
   }
   if (e.t === 'tick'){ Snd.pok(1200); return; }
-  const [t, col] = EVT[e.t];
+  const [t0, col] = EVT[e.t];
+  const t = e.t === 'opp' ? pick(OPP_LINES) : t0;
   addText(e.x, e.y + 0.8, t, col);
   switch (e.t){
     case 'table': case 'mate': case 'robot':
@@ -581,7 +601,8 @@ function drawFloor(){
   }
 
   // vlaggetjes: beste van deze ronde en het clubrecord
-  flag(G.roundBest, '#ffd23f', 'BEST');
+  // staan ze bijna op dezelfde plek, dan enkel het record: anders lees je BESORD
+  if (Math.abs(G.roundBest - G.record) * G.cam.ppm > 60) flag(G.roundBest, '#ffd23f', 'BEST');
   flag(G.record, '#ff5a4a', 'RECORD');
 }
 
@@ -606,7 +627,7 @@ function drawObstacles(){
     switch (o.type){
       case 'table': drawTable(o); break;
       case 'mate':  drawPerson(o.x, CLUB,  o.used ? 1 : 0, false); break;
-      case 'opp':   drawPerson(o.x, RIVAL, o.used ? 2 : 0, true); break;
+      case 'opp':   drawPerson(o.x, PIPS, o.used ? 2 : 0, true); break;
       case 'board': drawBoard(o); break;
       case 'net':   drawCatchNet(o); break;
       case 'robot': drawRobot(o); break;
@@ -632,8 +653,10 @@ function drawTable(o){
 const SKIN = '#f0c39a';
 const CLUB  = { shirt: '#161616', trim: '#f4f4f4', hem: '#0a0a0a', shorts: '#111111',
                 stripes: ['#e4474c', '#c6a743', '#2eb1c2'], crest: true };
-const RIVAL = { shirt: '#ffd23f', trim: '#b58a00', hem: '#b58a00', shorts: '#1c2430',
-                stripes: null, crest: false };
+/* De noppenspeler: geen rivaliserende club, erger. Zijn shirt is een
+   rubber met korte noppen naar buiten, in de kleuren van PIPS OUT!. */
+const PIPS  = { shirt: '#c8242a', trim: '#8d1519', hem: '#8d1519', shorts: '#1c2430',
+                stripes: null, crest: false, pips: ['#f0716a', '#d94a44', '#8b1a1f'], bat: '#c8242a' };
 
 /* short, benen, witte sokken en schoenen; hw en lw in meter */
 function drawLegs(L, hw, lw, kit){
@@ -646,8 +669,25 @@ function drawLegs(L, hw, lw, kit){
 }
 
 /* romp van top (hoogte van de schouders) tot top - h */
+/* een vlak vol noppen, zoals een rubber met korte noppen naar buiten;
+   kleiner dan 4 px zie je ze toch niet meer apart, dus nooit kleiner */
+function drawPips(x, y, w, h, cell, col){
+  const s = Math.max(4, cell), r = s * 0.3;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  for (let j = 0, py = y + s / 2; py < y + h + s; j++, py += s * 0.87){
+    for (let px = x + (j % 2 ? s / 2 : 0); px < x + w + s; px += s){
+      ctx.fillStyle = col[2]; ctx.beginPath(); ctx.arc(px + r * 0.25, py + r * 0.35, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col[1]; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+      if (s >= 6){ ctx.fillStyle = col[0]; ctx.beginPath(); ctx.arc(px - r * 0.3, py - r * 0.3, r * 0.4, 0, Math.PI * 2); ctx.fill(); }
+    }
+  }
+  ctx.restore();
+}
+
 function drawShirt(L, hw, top, h, kit){
   rect(-L(hw), -L(top), L(2 * hw), L(h), kit.shirt);
+  if (kit.pips) drawPips(-L(hw), -L(top), L(2 * hw), L(h), L(0.075), kit.pips);
   rect(-L(hw * 0.5), -L(top), L(hw), Math.max(1, L(0.04)), kit.trim);          // boord
   if (kit.stripes){
     const th = h * 0.06, gap = h * 0.035;
@@ -688,8 +728,14 @@ function drawPerson(x, kit, pose, facingLeft){
   ctx.rotate(ang);
   rect(0, -L(0.05), L(0.5), L(0.1), SKIN);
   drawSleeve(L, kit);
-  ctx.fillStyle = '#c8242a';
+  ctx.fillStyle = kit.bat || '#c8242a';
   ctx.beginPath(); ctx.ellipse(L(0.66), 0, L(0.15), L(0.13), 0, 0, Math.PI * 2); ctx.fill();
+  if (kit.pips){
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(L(0.66), 0, L(0.15), L(0.13), 0, 0, Math.PI * 2); ctx.clip();
+    drawPips(L(0.51), -L(0.13), L(0.3), L(0.26), L(0.055), kit.pips);
+    ctx.restore();
+  }
   ctx.restore();
   ctx.restore();
 }
@@ -935,11 +981,16 @@ function drawBanner(){
     ctx.font = '8px "Press Start 2P", monospace';
     wrap(bn.sub, W / 2, y + 30, W - 60, 14);
   }
+  if (G.screen === 'landed'){
+    ctx.font = '10px "Press Start 2P", monospace';
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillText('TOTAAL ' + fmt(G.total), W / 2, y + 66);
+  }
   if (G.screen === 'landed' && G.landT > 0.7){
     ctx.globalAlpha = 0.6 + Math.sin(performance.now() / 200) * 0.3;
     ctx.font = '9px "Press Start 2P", monospace';
     ctx.fillStyle = '#9ed4ff';
-    ctx.fillText(G.serve < SERVES ? 'TIK VOOR DE VOLGENDE OPSLAG' : 'TIK VOOR DE UITSLAG', W / 2, y + 80);
+    ctx.fillText(G.serve < SERVES ? 'TIK VOOR DE VOLGENDE OPSLAG' : 'TIK VOOR DE UITSLAG', W / 2, y + 94);
   }
   ctx.restore();
 }
@@ -1060,7 +1111,7 @@ el.submitRow.addEventListener('submit', async e => {
   const label = btn.textContent;
   btn.textContent = 'Bezig…';
 
-  const res = await SmashBoard.submit(el.playerName.value, G.roundBest, G.seed);
+  const res = await SmashBoard.submit(el.playerName.value, G.total, G.seed);
 
   btn.disabled = false;
   btn.textContent = label;
@@ -1077,7 +1128,7 @@ el.submitRow.addEventListener('submit', async e => {
   setTimeout(() => showBoard('over', res.entry.ts), 750);
 });
 $('btnShare').onclick = async () => {
-  const txt = 'Ik sloeg de bal ' + fmt(G.roundBest) + ' ver in ULTRA SMASH!, ' +
+  const txt = 'Ik sloeg de bal in vijf opslagen samen ' + fmt(G.total) + ' ver in ULTRA SMASH!, ' +
               'de nieuwe videogame van TTC Wielsbeke-Spotit. ' + location.href;
   try {
     if (navigator.share) await navigator.share({ text: txt });
@@ -1122,7 +1173,7 @@ function tick(){
 }
 
 G.world = S.freshWorld(G.base);
-el.bestTitle.textContent = G.record ? fmt(G.record) : '—';
+el.bestTitle.textContent = G.recordTotal ? fmt(G.recordTotal) : '—';
 paintMute();
 drawServes();
 drawHud();

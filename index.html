@@ -16,9 +16,9 @@
   #hud .hudbox{ min-width:0; padding:7px 6px; gap:5px; }
   #hud .digits{ font-size:11px; letter-spacing:0; white-space:nowrap; padding:4px 3px 3px; }
   #hud-serves{ flex:0 0 auto; }
-  .serves{ display:flex; gap:4px; }
+  .serves{ display:flex; gap:3px; }
   .serve{
-    width:11px; height:11px; border-radius:50%;
+    width:10px; height:10px; border-radius:50%;
     background:#fff; box-shadow:inset 0 -3px 0 rgba(0,0,0,.25), 0 2px 0 rgba(0,0,0,.45);
     transition:transform .2s, opacity .2s, background .2s;
   }
@@ -44,8 +44,8 @@
       <div class="digits" id="distDigits">0,0 m</div>
     </div>
     <div class="hudbox">
-      <span class="hud-label">BEST</span>
-      <div class="digits" id="bestDigits">0,0 m</div>
+      <span class="hud-label">TOTAAL</span>
+      <div class="digits" id="totalDigits">0,0 m</div>
     </div>
   </div>
 
@@ -64,7 +64,7 @@
         <button class="btn ghost" id="btnHow">Hoe werkt het?</button>
         <button class="btn ghost" id="btnBoard">Erelijst</button>
       </div>
-      <div class="best">Clubrecord op dit toestel: <span id="bestTitle">—</span></div>
+      <div class="best">Record op dit toestel: <span id="bestTitle">—</span></div>
     </div>
 
     <!-- ---- UITLEG ---- -->
@@ -74,10 +74,10 @@
         <li><span><b>Tik</b> — de speler gooit op. <b>Tik opnieuw</b> als de bal door de gele strook valt.</span></li>
         <li><span><b>Te vroeg</b> = een lob. <b>Te laat</b> = in de grond. <b>Perfect</b> = vuur.</span></li>
         <li><span><b>Tafel</b> — botst en versnelt. <b>Zwart clubshirt</b> — je teamgenoot slaat hem verder.</span></li>
-        <li><span><b class="no">Geel shirt</b>, afschermingen en vangnetten remmen af. Een brandende bal gaat erdoor.</span></li>
+        <li><span>De <b class="no">noppenspeler</b> blokt alles dood. Afschermingen en vangnetten remmen af. Een brandende bal gaat overal door.</span></li>
         <li><span><b>In de lucht</b> — één keer tikken om te blazen.</span></li>
       </ul>
-      <p class="fineprint">Vijf opslagen. Je verste telt. Elke dag staat de zaal anders.</p>
+      <p class="fineprint">Vijf opslagen, alles telt samen. Een foute opslag is nul. Elke dag staat de zaal anders.</p>
       <button class="btn" id="btnBack">Terug</button>
     </div>
 
@@ -85,6 +85,7 @@
     <div class="overlay hidden" id="screen-over">
       <h2 class="ov-title">VIJF OPSLAGEN</h2>
       <div class="finalscore" id="finalDist">0,0 m</div>
+      <p class="fineprint" id="overSplits"></p>
       <p class="quip" id="overQuip"></p>
 
       <form class="namerow" id="submitRow" autocomplete="off">
@@ -94,7 +95,7 @@
       </form>
       <p class="noted hidden" id="submitDone"></p>
 
-      <div class="best">Clubrecord op dit toestel: <span id="bestOver">—</span></div>
+      <div class="best">Record op dit toestel: <span id="bestOver">—</span></div>
       <button class="btn" id="btnRetry">Opnieuw</button>
       <div class="btnrow">
         <button class="btn ghost" id="btnBoardOver">Erelijst</button>

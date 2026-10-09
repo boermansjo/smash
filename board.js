@@ -23,10 +23,10 @@ function cleanName(raw){
 }
 
 /* ---------- kan die afstand wel kloppen? ----------
-   De zaal en alles erachter stopt na 1500 m. Een perfecte slag
-   met veel geluk haalt er zo'n 600; 2000 laat ruimte voor het
-   ongelooflijke, maar niet voor 99999. */
-const MAX_DIST = 2000;
+   Het totaal van vijf opslagen. De zaal en alles erachter stopt na
+   1500 m; een perfecte slag met veel geluk haalt er zo'n 600. Vijf
+   keer 2000 laat ruimte voor het ongelooflijke, maar niet voor 99999. */
+const MAX_DIST = 10000;
 const plausible = d => Number.isFinite(d) && d > 0 && d <= MAX_DIST;
 
 /* ---------- lokale opslag ---------- */
@@ -47,7 +47,7 @@ function addLocal(e){
   writeLocal(rows);
 }
 
-/* ---------- alleen de verste slag per naam ---------- */
+/* ---------- alleen het beste totaal per naam ---------- */
 function bestPerName(rows){
   const seen = new Map();
   for (const r of rows){
